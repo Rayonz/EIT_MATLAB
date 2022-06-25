@@ -1,0 +1,262 @@
+% Export PET from pdeModeler
+%%
+% % % =============Get data from mesh=============================
+ne=size(t,2); %number of elements
+np=size(p,2);  %number of nodes
+nd=8; %numer of electrode
+nm=8; %number of current injection
+%%
+% % ===================Input-Preprocessing===============================
+if flag==true
+else %if false, refresh r
+    r=ones(ne,1); %conductivity for each element
+end
+fc=zeros(np); 
+ce=zeros(np); 
+cspm=1; %the magnitude of the injecting current 
+csnm=-1; %the magnitude of the sinking current
+cem=0.1; 
+%%
+% % =========================Assign current source to edges======================================
+electrodeN=1:nd;
+electrode=[   %electrode indicated as the two adjacent nodes
+    167,4;
+    163,7;
+    159,3;
+    18,155;
+    2,151;
+    5,146;
+    143,1;
+    30,171;
+      ];
+
+
+%   electrode=[   %16 electrodes
+%     167,4;
+%     165,25;
+%     163,7;
+%     161,22;
+%     159,3;
+%     157,20;
+%     18,155;
+%     153,16
+%     2,151;
+%     149,13
+%     5,146;
+%     145,10
+%     143,1;
+%     31,173;
+%     30,171;
+%     29,169;
+%       ];
+
+electrode=electrode';
+for i=1:size(electrode,2)
+    ce(electrode(1,i),electrode(2,i))=cem;
+    ce(electrode(2,i),electrode(1,i))=cem;
+end
+
+ba=zeros(np,nm);
+%% Current injection at bb
+
+%%% Adjacent Pattern
+bb=zeros(nd,nm);
+for i=1:nd
+    if i<nd
+bb(i,i)=cspm;
+bb(i,i+1)=csnm;
+    else
+        bb(i,i)=cspm;
+        bb(i,i-nd+1)=csnm;
+    end
+end
+
+%%% Opposite Pattern
+% bb=zeros(nd,nm);
+% for i=1:nd
+%     if i<=nd/2
+% bb(i,i)=cspm;
+% bb(i+nd/2,i)=csnm;
+%     else
+%         bb(i,i)=cspm;
+%         bb(i-nd/2,i)=csnm;
+%     end
+% end
+
+%%%All possible pattern combined
+% i=1;
+% bb=zeros(nd,nm);
+% for i1=1:nd
+%     for i2=1:nd
+%         if i1~=i2
+% bb(i1,i)=cspm;
+% bb(i2,i)=csnm;
+% i=i+1;
+%         else
+%         end
+%         
+%     end
+% end
+% ba=zeros(np,size(bb,2));
+
+
+
+
+%% 
+% % Aa =========================
+rm=[0 1;-1 0];
+Aa=zeros(np);
+a=zeros(ne,1);
+for i=1:ne   
+i1=t(1,i);i2=t(2,i);i3=t(3,i);v1=p(:,i1);v2=p(:,i2);v3=p(:,i3); 
+a(i)= dot(v1-v2,rm*(v1-v3))/2; 
+g1=[(v1-v2)';(v1-v3)']\[1;1];  
+g2=[(v2-v3)';(v2-v1)']\[1;1];
+g3=[(v3-v1)';(v3-v2)']\[1;1];
+Aa(i1,i1)=Aa(i1,i1)+a(i)*r(i)*dot(g1,g1); 
+Aa(i2,i2)=Aa(i2,i2)+a(i)*r(i)*dot(g2,g2);
+Aa(i3,i3)=Aa(i3,i3)+a(i)*r(i)*dot(g3,g3);
+Aa(i1,i2)=Aa(i1,i2)+a(i)*r(i)*dot(g1,g2);
+Aa(i1,i3)=Aa(i1,i3)+a(i)*r(i)*dot(g1,g3);
+Aa(i2,i3)=Aa(i2,i3)+a(i)*r(i)*dot(g2,g3);
+Aa(i2,i1)=Aa(i2,i1)+a(i)*r(i)*dot(g2,g1);
+Aa(i3,i1)=Aa(i3,i1)+a(i)*r(i)*dot(g3,g1);
+Aa(i3,i2)=Aa(i3,i2)+a(i)*r(i)*dot(g3,g2);
+end
+%%
+% % A_b=========================
+Ab=zeros(np);
+for i=1:ne   
+i1=t(1,i);i2=t(2,i);i3=t(3,i);v1=p(:,i1);v2=p(:,i2);v3=p(:,i3); 
+Ab(i1,i1)=Ab(i1,i1)+fc(i1,i1)*norm(v1-v1)/4; 
+Ab(i1,i2)=Ab(i1,i2)+fc(i1,i2)*norm(v1-v2)/4; 
+Ab(i1,i3)=Ab(i1,i3)+fc(i1,i3)*norm(v1-v3)/4; 
+Ab(i2,i1)=Ab(i2,i1)+fc(i2,i1)*norm(v2-v1)/4; 
+Ab(i2,i2)=Ab(i2,i2)+fc(i2,i2)*norm(v2-v2)/4; 
+Ab(i2,i3)=Ab(i2,i3)+fc(i2,i3)*norm(v2-v3)/4; 
+Ab(i3,i1)=Ab(i3,i1)+fc(i3,i1)*norm(v3-v1)/4; 
+Ab(i3,i2)=Ab(i3,i2)+fc(i3,i2)*norm(v3-v2)/4; 
+Ab(i3,i3)=Ab(i3,i3)+fc(i3,i3)*norm(v3-v3)/4; 
+end
+
+
+%% For edge current source. with a length
+% % A_c=======================================================
+Ac=zeros(np,nd);
+
+for i=1:nd
+        Ac(electrode(1,i),i)=-ce(electrode(1,1),electrode(2,1))*...
+            norm(p(:,electrode(1,i))-p(:,electrode(2,i)))/2;
+        Ac(electrode(2,i),i)=-ce(electrode(1,1),electrode(2,1))*...
+            norm(p(:,electrode(1,i))-p(:,electrode(2,i)))/2;
+end
+
+% Acc=zeros(np,np);
+% for i=1:ne   
+% i1=t(1,i);i2=t(2,i);i3=t(3,i);v1=p(:,i1);v2=p(:,i2);v3=p(:,i3); 
+% Acc(i1,i1)=Acc(i1,i1)-ce(i1,i1)*norm(v1-v1)/2;
+% Acc(i1,i2)=Acc(i1,i2)-ce(i1,i2)*norm(v1-v2)/2;
+% Acc(i1,i3)=Acc(i1,i3)-ce(i1,i3)*norm(v1-v3)/2;
+% Acc(i2,i1)=Acc(i2,i1)-ce(i2,i1)*norm(v2-v1)/2;
+% Acc(i2,i2)=Acc(i2,i2)-ce(i2,i2)*norm(v2-v2)/2;
+% Acc(i2,i3)=Acc(i2,i3)-ce(i2,i3)*norm(v2-v3)/2;
+% Acc(i3,i1)=Acc(i3,i1)-ce(i3,i1)*norm(v3-v1)/2;
+% Acc(i3,i2)=Acc(i3,i2)-ce(i3,i2)*norm(v3-v2)/2;
+% Acc(i3,i3)=Acc(i3,i3)-ce(i3,i3)*norm(v3-v3)/2;
+% end
+% Acc=sum(Acc,2);
+% for i=1:nd
+% Ac(electrode(:,i)',electrodeN(i))=Acc(electrode(:,i)');
+% end
+% Ac=Ac./3;
+
+
+
+%%
+% % A_d ======================================
+Ad=eye(nd,nd)./1;
+
+% % % ============================================
+%%
+%Summarize A and B
+A=[Aa+Ab,Ac;Ac',Ad];
+B=[ba;bb];
+
+%solvers that dont support sparse
+tic
+uf=pinv(A)*B;
+toc
+% %right matrix divison
+% uf=A\B;
+% % lower-upper decomposition
+% uf=linsolve(A,B);  
+% uf=(A'*A)^-1*A'*B;
+
+%solvers that support sparse
+% A=sparse(A);
+% B=sparse(B);
+% uf=A\B;
+% uf = lsqr(A,B);
+% uf=lsqlin(A,B,A,B);  %solve contrained linear LS problem
+% uf = qmr(A,B);
+% uf=cgs(A,B); %Conjugate gradients squared method
+
+
+
+%% 
+% % Moore-Penrose pseudoinverse
+% uf=pinv(A)*B;
+% % Conjugate gradients squared method
+% uf=cgs(A,B); 
+% %right matrix divison
+% uf=A\B;
+% % lower-upper decomposition
+% uf=linsolve(A,B); 
+% % quasi-minimal residual method
+% uf=symmlq(A,B);
+
+
+%% Seperate electrode and domain
+% Seperate the solution into nodal voltages and electrode voltages
+ui=uf(1:size(uf,1)-nd,:);
+ud=uf(size(uf,1)-nd+1:size(uf,1),:);
+
+if flag==true
+    v_new=reshape(ud,[],1);
+else
+    v_ref=reshape(ud,[],1); %get the reference voltages
+end
+
+
+
+
+
+
+%% Plot the result of the k th current injection
+k=5;
+ui_k=ui(:,k);
+ud_k=ud(:,k);
+uo=zeros(np,1);
+for i=1:nd %extract only the voltages at electrodes, excluding the injecting electrodes
+    if ismember(i,(1:nd)'.*abs(bb(:,k)))==1
+    else
+uo(electrode(:,i))=ud_k(i);
+    end
+end
+dVInternal=max(ui_k)-min(ui_k);
+dVExternal=max(uo)-min(uo);
+    subplot(1,2,1);
+trisurf(t(1:3,:)',p(1,:),p(2,:),ui_k,'EdgeColor','k');  %trimesh/trisurf
+title(['dV=',num2str(dVInternal),'    Domain'])
+hold on
+
+subplot(1,2,2);
+trisurf(t(1:3,:)',p(1,:),p(2,:),uo,'EdgeColor','r');  %trimesh/trisurf
+title(['dV=',num2str(dVExternal),'  Electrode'])
+hold on
+scatter(p(1,electrode),p(2,electrode),'b','filled')
+alpha(0.5)
+
+
+
+
