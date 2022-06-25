@@ -11,11 +11,10 @@ if flag==true
 else %if false, refresh r
     r=ones(ne,1); %conductivity for each element
 end
-fc=zeros(np); 
 ce=zeros(np); 
 cspm=1; %the magnitude of the injecting current 
 csnm=-1; %the magnitude of the sinking current
-cem=0.1; 
+cem=1; 
 %%
 % % =========================Assign current source to edges======================================
 electrodeN=1:nd;
@@ -128,15 +127,15 @@ end
 Ab=zeros(np);
 for i=1:ne   
 i1=t(1,i);i2=t(2,i);i3=t(3,i);v1=p(:,i1);v2=p(:,i2);v3=p(:,i3); 
-Ab(i1,i1)=Ab(i1,i1)+fc(i1,i1)*norm(v1-v1)/4; 
-Ab(i1,i2)=Ab(i1,i2)+fc(i1,i2)*norm(v1-v2)/4; 
-Ab(i1,i3)=Ab(i1,i3)+fc(i1,i3)*norm(v1-v3)/4; 
-Ab(i2,i1)=Ab(i2,i1)+fc(i2,i1)*norm(v2-v1)/4; 
-Ab(i2,i2)=Ab(i2,i2)+fc(i2,i2)*norm(v2-v2)/4; 
-Ab(i2,i3)=Ab(i2,i3)+fc(i2,i3)*norm(v2-v3)/4; 
-Ab(i3,i1)=Ab(i3,i1)+fc(i3,i1)*norm(v3-v1)/4; 
-Ab(i3,i2)=Ab(i3,i2)+fc(i3,i2)*norm(v3-v2)/4; 
-Ab(i3,i3)=Ab(i3,i3)+fc(i3,i3)*norm(v3-v3)/4; 
+Ab(i1,i1)=Ab(i1,i1)+ce(i1,i1)*norm(v1-v1)/4; 
+Ab(i1,i2)=Ab(i1,i2)+ce(i1,i2)*norm(v1-v2)/4; 
+Ab(i1,i3)=Ab(i1,i3)+ce(i1,i3)*norm(v1-v3)/4; 
+Ab(i2,i1)=Ab(i2,i1)+ce(i2,i1)*norm(v2-v1)/4; 
+Ab(i2,i2)=Ab(i2,i2)+ce(i2,i2)*norm(v2-v2)/4; 
+Ab(i2,i3)=Ab(i2,i3)+ce(i2,i3)*norm(v2-v3)/4; 
+Ab(i3,i1)=Ab(i3,i1)+ce(i3,i1)*norm(v3-v1)/4; 
+Ab(i3,i2)=Ab(i3,i2)+ce(i3,i2)*norm(v3-v2)/4; 
+Ab(i3,i3)=Ab(i3,i3)+ce(i3,i3)*norm(v3-v3)/4; 
 end
 
 
@@ -151,30 +150,10 @@ for i=1:nd
             norm(p(:,electrode(1,i))-p(:,electrode(2,i)))/2;
 end
 
-% Acc=zeros(np,np);
-% for i=1:ne   
-% i1=t(1,i);i2=t(2,i);i3=t(3,i);v1=p(:,i1);v2=p(:,i2);v3=p(:,i3); 
-% Acc(i1,i1)=Acc(i1,i1)-ce(i1,i1)*norm(v1-v1)/2;
-% Acc(i1,i2)=Acc(i1,i2)-ce(i1,i2)*norm(v1-v2)/2;
-% Acc(i1,i3)=Acc(i1,i3)-ce(i1,i3)*norm(v1-v3)/2;
-% Acc(i2,i1)=Acc(i2,i1)-ce(i2,i1)*norm(v2-v1)/2;
-% Acc(i2,i2)=Acc(i2,i2)-ce(i2,i2)*norm(v2-v2)/2;
-% Acc(i2,i3)=Acc(i2,i3)-ce(i2,i3)*norm(v2-v3)/2;
-% Acc(i3,i1)=Acc(i3,i1)-ce(i3,i1)*norm(v3-v1)/2;
-% Acc(i3,i2)=Acc(i3,i2)-ce(i3,i2)*norm(v3-v2)/2;
-% Acc(i3,i3)=Acc(i3,i3)-ce(i3,i3)*norm(v3-v3)/2;
-% end
-% Acc=sum(Acc,2);
-% for i=1:nd
-% Ac(electrode(:,i)',electrodeN(i))=Acc(electrode(:,i)');
-% end
-% Ac=Ac./3;
-
-
 
 %%
 % % A_d ======================================
-Ad=eye(nd,nd)./1;
+Ad=eye(nd,nd)./cem;
 
 % % % ============================================
 %%
