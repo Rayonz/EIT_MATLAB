@@ -1,0 +1,61 @@
+% function [H,Hf,Ht]=calculate_Jacobian(p,e,t,A,B,electrode)
+% % ===============================================================
+% % % change output name to 'Hf' for voltage at all nodes and electrode
+% % % Change output name to 'Ht' for electrode voltage only;
+tic
+% % % Change output name to 'H' for full voltage at node for one current injection only;
+cii=size(B,2); %set it as nm by default to get the last injection.
+%%% if there are 8 current injection pattern, use cii=1 to get the 'H' for the first injection. etc
+% % ===============================================================
+% p,e,t: imported from PDEmodeler
+% A: stiffness matrix of Complete Electrode Model (CEM)
+% B: current injection matrix of CEM
+% dU=H*dSigma
+% dU_L=H*dSigma (extracted)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
+A=sparse(A);
+B=sparse(B);
+ne=size(t,2); %number of elements
+np=size(p,2);  %number of nodes
+nm=size(B,2); %number of current injections
+nl=size(electrode,2);%number of electrodes
+rm=[0 1;-1 0];
+a=zeros(ne,1);
+%% Repeat the same procedure for all current injection patterns
+Ht=sparse(nl*nm,ne);
+Hf=sparse((nl+np)*nm,ne);
+for m=1:cii
+    H=sparse(np+nl,ne);
+    invA=inv(A);
+for i=1:ne 
+    i1=t(1,i);i2=t(2,i);i3=t(3,i);v1=p(:,i1);v2=p(:,i2);v3=p(:,i3); 
+    As=sparse(np+nl,np+nl);
+    As(t(1:3,i)',t(1:3,i)')=1; 
+    Aa=sparse(np+nl,np+nl); %Aa: without sigma; area only
+    a(i)= dot(v1-v2,rm*(v1-v3))/2; 
+    g1=[(v1-v2)';(v1-v3)']\[1;1];  
+    g2=[(v2-v3)';(v2-v1)']\[1;1];
+    g3=[(v3-v1)';(v3-v2)']\[1;1];
+    Aa(i1,i1)=Aa(i1,i1)+a(i)*dot(g1,g1); 
+    Aa(i2,i2)=Aa(i2,i2)+a(i)*dot(g2,g2);
+    Aa(i3,i3)=Aa(i3,i3)+a(i)*dot(g3,g3);
+    Aa(i1,i2)=Aa(i1,i2)+a(i)*dot(g1,g2);
+    Aa(i1,i3)=Aa(i1,i3)+a(i)*dot(g1,g3);
+    Aa(i2,i3)=Aa(i2,i3)+a(i)*dot(g2,g3);
+    Aa(i2,i1)=Aa(i2,i1)+a(i)*dot(g2,g1);
+    Aa(i3,i1)=Aa(i3,i1)+a(i)*dot(g3,g1);
+    Aa(i3,i2)=Aa(i3,i2)+a(i)*dot(g3,g2);
+    dAds=Aa.*As;
+    H(:,i)=invA*dAds*invA*B(:,m); %without extraction of electrode electric potential
+end
+%% Extraction of voltage data between each pair of electrodes
+em=eye(nl,nl); %identity matrix 
+em=[sparse(nl,np),em];%ignores the first nl rows and np columns of data
+H1=em*H; %electric potential at the nl electrodes extracted
+H2=H; 
+%% Assign into the overall H matrix
+    Ht((m-1)*nl+1:(m-1)*nl+nl,:)=H1;  %extracted for electrode voltage
+    Hf((m-1)*(nl+np)+1:(m-1)*(nl+np)+(nl+np),:)=H2;  %Full nodal voltages 
+end
+%%
+Ht=-Ht;
+toc
