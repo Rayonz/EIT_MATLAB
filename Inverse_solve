@@ -1,0 +1,222 @@
+
+%%%% toggle this on for added noise.
+% % % % % https://www.lasercalculator.com/db-percent-converter/
+% signal_noise_multipliers=10; % this variable means the power of the signal is "varaible value" times the power of the noise
+% noise_in_percentage=1/(signal_noise_multipliers+1)*1000; %the percentage of noise in the signal, unit is (%).
+% snr=10*log10(signal_noise_multipliers);%unit in decibel
+% z_noised= awgn(z,snr,'measured');
+% plot([z,z_noised]);
+% legend('Original Signal','Signal with AWGN')
+
+
+
+%% x=(H'*H+lamda^2*R'R)^-1*H'*z
+%H: the Jacobian matrix
+%lamda: regularization parameter (hyperparameter)
+%R: regularization matrix
+%x: solution: conductivity at each element
+
+
+%% get input for inverse solver from the forward solution (need to run only once )
+% H=calculate_Jacobian(p,e,t,A,B,electrode);
+
+
+%%
+% if flag==true %this flag is for later updating the ds matrix.during the GN loop.
+%     dv=v_ref-v_new;
+%     z=dv;
+% else %when the flag is false, it means the GN is not ran,or still initilizing. 
+%     z=v_ref-0; %z, in this case, is the voltage difference with respect to zero.
+% end
+
+
+
+%% For Full voltage data 
+% dv=Hf*ds;
+% x=Hf\dv;
+
+%% For full voltage data during one single current injection only
+% dv=H*ds;
+% x=H\dv;
+
+%% Tikhonov regularization.
+% Ht=full(Ht);
+% R=eye(ne,ne); % Tikhonov regularization
+% lamda=0.5;
+% tic
+% x=(((Ht')*Ht+lamda^2*(R')*R)^-1)*Ht'*z;
+% toc
+%% Noser regularization.
+% Ht=full(Ht);
+% R=diag(diag(Ht'*Ht))^0.1;%Noser
+% lamda=0.001;
+% tic
+% x=(((Ht')*Ht+lamda^2*(R')*R)^-1)*Ht'*z;
+% toc
+%% TV regularization.
+Ht=full(Ht);
+if flag==true %if this flag is true, the TV regulartion matrix is not requried to be reculated.
+else %when the flag is false, it means the GN is not ran, use the initial default input
+    ie=1;
+    edge=[];
+    for ia=1:size(t,2) %get all internal edges from element matrix
+         for ib=1:size(t,2) %get all edges from element matrix 
+             if sum(ismember(t(1:3,ia),t(1:3,ib)))==2
+         edge(1,ie)=ia; %the first adjacent element to this edge
+         edge(2,ie)=ib; %the second adjacent element to this edge
+         
+         edgenodes=t(1:3,ia);
+         edgenodes=edgenodes(ismember(t(1:3,ia),t(1:3,ib)));
+         edge(3,ie)=edgenodes(1);    %the first point of this edge
+         edge(4,ie)=edgenodes(2);    %the seceond point of this edge
+         edge(5,ie)= norm(p(:,edge(3,ie))-p(:,edge(4,ie)));  %the length of this edge
+          ie=ie+1;
+             end  
+         end
+    end
+     R=zeros(size(edge,2),ne); %build the TV regularization matrix
+     for i=1:size(edge,2)
+         R(i,edge(1,i))=edge(5,i);
+         R(i,edge(2,i))=-edge(5,i);
+     end      
+end
+
+
+
+lamda=0.001;
+% tic
+x=(((Ht')*Ht+lamda^2*(R')*R)^-1)*Ht'*z;
+% toc
+% x_noised=(((Ht')*Ht+lamda^2*(R')*R)^-1)*Ht'*z_noised;
+% clear snr
+% snr(x_noised, x_noised-x)
+
+%% Pinv
+% Ht=full(Ht);
+% tic
+% x=pinv(Ht)*z;
+% toc
+%% Non-negative least sqaure
+% lamda=1e0;
+% C=[Ht;lamda*R];
+% d=[z;zeros(size(R*ne,1),1)];
+% % d=[z_noised;zeros(size(R*ne,1),1)];
+% x=lsqnonneg(C,d);
+% % x=lsqlin(C,d,[],[],[],[],0.*ones(ne,1),1.*ones(ne,1)) ;
+% 
+% x=lsqnonneg(Ht,z);
+% % x=lsqnonneg(Ht,z_noised);
+% 
+% x=lsqlin(Ht,z,[],[],Ht,z,0.*ones(ne,1),1.*ones(ne,1)) ;
+% % x=lsqlin(Ht,z,[],[],Ht,z_noised,0.*ones(ne,1),1.*ones(ne,1)) ;
+% 
+
+%% two step rec
+
+% adj_element=edge(2,:);
+% x_dilated=x;
+% for i=1:ne
+%     adjelement=adj_element(logical(edge(1,:)==i));
+%     x_dilated(i)=max(x([i adjelement]));
+% end
+% 
+% x_dilated(x_dilated<=1e-9)=0;
+% logicx=logical(x_dilated);
+% Ht_2step=Ht(:,logicx);  
+% R_2step=R(:,logicx);
+% % 
+% lamda=1e-3;
+% % x2=(((Ht_2step')*Ht_2step+lamda^2*(R_2step')*R_2step)^-1)*Ht_2step'*z;
+% % 
+% % x2=lsqnonneg(Ht_2step,z);
+% % 
+% C=[Ht_2step;lamda*R_2step];
+% d=[z;zeros(size(R*ne,1),1)];
+% x2=lsqnonneg(C,d);
+% % 
+% % x2=lsqlin(Ht_2step,z,[],[],Ht_2step,z,0.*ones(ne,1),1.*ones(ne,1)) ;
+% 
+% % x2=pinv(Ht_2step)*z;
+% % 
+% x_2step=x_dilated;
+% x_2step(logical(x_dilated))=x2;
+
+
+%% Find all solutions
+% Ht=full(Ht);
+% dv=Ht*ds;
+% z=dv;
+% % w=rand(1000,1);
+% % x=pinv(Ht)*z+(eye(size(pinv(Ht)*Ht))-pinv(Ht)*Ht)*w;
+
+% x=pinv(Ht)*z;
+
+
+%% Use patch 
+if flag==true %if true flag, no need to plot
+else %when the flag is false, it means the GN is not ran, use the initial default input
+ figure('Name','True');
+% subplot(1,3,1);
+xc=p(1,:);
+yc=p(2,:);
+trix=zeros(3,ne);
+triy=zeros(3,ne);
+     for i=1:ne
+         trix(:,i)=xc(t(1:3,i)');
+          triy(:,i)=yc(t(1:3,i)');
+     end
+% patch(trix,triy,ds)
+patch(trix,triy,ds,'EdgeColor','n')
+% title('RealConducitivity')    
+hold on
+scatter(p(1,electrode),p(2,electrode),'r','filled')
+% subplot(1,3,2);
+set(gcf, 'Position',[100 100 500 450])
+set(gca,'visible','off')
+cb=colorbar('southoutside');
+set(cb,'position',[.33 0.1 0.4 0.05])
+figure('Name','Inverse Solution')
+patch(trix,triy,x,'EdgeColor','n')
+% title('Reconstructed Conducitivity')
+hold on
+scatter(p(1,electrode),p(2,electrode),'r','filled')
+set(gcf, 'Position',[100 100 500 450])
+set(gca,'visible','off')
+cb=colorbar('southoutside');
+set(cb,'position',[.33 0.1 0.4 0.05])
+
+figure('Name','Data')
+h2=stem(ds);
+hold on
+h1=stem(x);
+set(h1,'MarkerFaceColor','red','Marker','none')
+set(h2,'MarkerFaceColor','blue','Marker','none')
+legend('True Conductivity','Reconstructed Conductivity')
+set(gcf, 'Position',[100 100 450 400])
+ylim([-0.5 inf])
+gggca=gca;
+gggca.YLim
+text(200,gggca.YLim(1)*0.3,['L1T= ',num2str(norm(ds,1))])
+text(600,gggca.YLim(1)*0.3,['L2T= ',num2str(norm(ds,2))])
+text(200,gggca.YLim(1)*0.75,['L1R= ',num2str(norm(x,1))])
+text(600,gggca.YLim(1)*0.75,['L2R= ',num2str(norm(x,2))])
+end
+
+
+% figure('Name','2-step Solution')
+% patch(trix,triy,x_2step,'EdgeColor','n')
+% % title('Reconstructed Conducitivity')
+% hold on
+% scatter(p(1,electrode),p(2,electrode),'r','filled')
+% set(gcf, 'Position',[100 100 500 450])
+% set(gca,'visible','off')
+% cb=colorbar('southoutside');
+% set(cb,'position',[.33 0.1 0.4 0.05])
+
+% norm(ds,1)
+% norm(x,1)
+
+
+
+
+
